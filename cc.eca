@@ -1,0 +1,97 @@
+(* -------------------------------------------------------------------- *)
+require import AllCore SmtMap List Perms Distr DList.
+require (*--*) FinType.
+
+(* -------------------------------------------------------------------- *)
+type msg_t, state_t, id_t.
+
+type queue_t = (id_t, msg_t list) fmap.
+
+(* -------------------------------------------------------------------- *)
+clone MFinite as FinId with type t <- id_t.
+
+(* -------------------------------------------------------------------- *)
+module type Adv = {
+  (* lossless, fairness, liveness *)
+  proc next(msgs : queue_t) : queue_t
+}.
+
+(* -------------------------------------------------------------------- *)
+module type Party = {
+  proc init(id : id_t) : unit
+
+  (* lossless, no-side effects, involutive *)
+  proc state(id : id_t) : state_t
+
+  (* does not change the state of other IDs *)
+  proc next(id : id_t, msg : msg_t list) : queue_t
+}.
+
+(* -------------------------------------------------------------------- *)
+section PartyPts.
+declare module P : Party.
+
+local lemma party_ll :
+  islossless P.state.
+proof. admitted.
+
+local lemma party_no_effects state0 :
+  hoare [P.state : glob P = state0 ==> glob P = state0].
+proof. admitted.
+
+local module Twice = {
+  proc doit(id : id_t) = {
+    var state1, state2;
+
+    state1 <- P.state(id);
+    state2 <- P.state(id);
+    return (state1 = state2);
+  }
+}.
+
+local lemma party_determistic :
+  phoare [Twice.doit : true ==> res] = 1%r.
+proof. admitted.
+
+end section PartyPts.
+
+(* -------------------------------------------------------------------- *)
+op merge (q1 q2 : queue_t) =
+  SmtMap.ofmap (Map.offun (fun id =>
+    if (id \in q1) \/ (id \in q2) then
+      Some (odflt [] q1.[id] ++ odflt [] q2.[id])
+    else None)).
+
+(* -------------------------------------------------------------------- *)
+module Scheduler(P : Party, A : Adv) = {
+  var pending : queue_t
+
+  proc init() : unit = {
+    var id : id_t;
+    var ids = FinId.Support.enum;
+
+    pending <- empty;
+    while (ids <> []) {
+      (id, ids) <- (oget (ohead ids), behead ids);
+      P.init(id);
+    }
+  }
+
+  proc next() : unit = {
+    var ids, id, pending0, npending;
+
+    npending <- empty;
+    pending  <@ A.next(pending);
+    ids      <$ duniform (allperms FinId.Support.enum);
+
+    while (ids <> []) {
+      (id, ids) <- (oget (ohead ids), behead ids);
+      if (id \in pending) {
+        pending0 <@ P.next(id, oget pending.[id]);
+        npending <- merge npending pending0;
+      }
+    }
+
+    pending <- npending;
+  }
+}.
