@@ -1,0 +1,172 @@
+(* ==================================================================== *)
+require import AllCore.
+
+(* ==================================================================== *)
+abstract theory Channel.
+
+  (* ------------------------------------------------------------------ *)
+  type msg_t.
+
+  op length : msg_t -> int.
+
+  (* ------------------------------------------------------------------ *)
+  module type Channel = {
+    proc write(m : msg_t) : msg_t option
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module type AdvInsecureChannel = {
+    proc msg(m : msg_t) : msg_t option
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module InsecureChannel(A : AdvInsecureChannel) : Channel = {
+    proc write(m : msg_t) = {
+      var om;
+      om <@ A.msg(m);
+      return om;
+    }
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module type AdvAuthChannel = {
+    proc msg(m : msg_t) : unit
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module AuthChannel(A : AdvAuthChannel) : Channel = {
+    proc write(m : msg_t) = {
+      A.msg(m);
+      return (Some m);
+    }
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module type AdvLengthLeakingSecChannel = {
+    proc msg(l : int) : unit
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module LengthLeakingSecChannel(A : AdvLengthLeakingSecChannel) = {
+    proc write(m : msg_t) = {
+      A.msg(length m);
+      return (Some m);
+    }
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module AdvChannel(C : Channel) : Channel = {
+    var b : bool
+
+    proc write(m : msg_t) : msg_t option = {
+      var om = Some m;
+
+      if (b) om <@ C.write(m);
+      return om;
+    }
+  }.
+
+  (* ------------------------------------------------------------------ *)
+  module type D(C1 : Channel, C2 : Channel) = {
+    proc d() : bool
+  }.
+end Channel.
+
+(* ==================================================================== *)
+abstract theory Converter.
+  type input_t, output_t.
+
+  clone Channel as InChannel  with type msg_t <- input_t.
+  clone Channel as OutChannel with type msg_t <- output_t.
+
+  module type Converter = {
+    proc convert_in (x : input_t ) : output_t
+    proc convert_out(x : output_t) : input_t
+  }.
+
+  module Converted(C : OutChannel.Channel, V : Converter) : InChannel.Channel = {
+    proc write(m : input_t) : input_t option = {
+      var m' : output_t;
+      var om : output_t option;
+      var im : input_t option;
+
+      m' <@ V.convert_in(m);
+      om <@ C.write(m');
+      im <- None;
+
+      if (om <> None) {
+        m  <@ V.convert_out(oget om);
+        im <- Some m;
+      }
+
+      return im;
+    }
+  }.
+end Converter.
+
+(* ==================================================================== *)
+type msg1_t, msg2_t, msg3_t.
+
+clone Converter as Converter_1_2 with
+  type input_t <- msg1_t, type output_t <- msg2_t.
+
+clone Converter as Converter_2_3 with
+  type input_t <- msg2_t, type output_t <- msg3_t.
+
+clone Converter as Converter_1_3 with
+  type input_t <- msg1_t, type output_t <- msg3_t.
+
+(* ==================================================================== *)
+section Theorem.
+
+declare module Cnv_1_2 : Converter_1_2.Converter.
+declare module Cnv_2_3 : Converter_2_3.Converter.
+
+declare module T : Converter_1_2.InChannel.Channel.
+declare module S : Converter_1_2.OutChannel.Channel.
+declare module R : Converter_2_3.OutChannel.Channel.
+
+declare module D_ST : Converter_1_3.InChannel.D.
+declare module D_S  : Converter_2_3.InChannel.D.
+declare module D_T  : Converter_1_2.InChannel.D.
+
+local module BotT = Converter_1_2.InChannel.AdvChannel(T).
+local module BotS = Converter_1_2.OutChannel.AdvChannel(S).
+local module BotR = Converter_2_3.OutChannel.AdvChannel(R).
+
+op e, e' : real.
+
+local lemma h1 &m :
+  Pr[D_S(Converter_2_3.Converted(BotR, Cnv_2_3), BotS).d() @ &m : res] < e.
+proof. admitted.
+
+local lemma h2 &m :
+  Pr[D_T(Converter_1_2.Converted(BotS, Cnv_1_2), BotT).d() @ &m : res] < e'.
+proof. admitted.
+
+local module Cnv_1_3 : Converter_1_3.Converter = {
+  proc convert_in(m1 : msg1_t) : msg3_t = {
+    var m2 : msg2_t;
+    var m3 : msg3_t;
+
+    m2 <@ Cnv_1_2.convert_in(m1);
+    m3 <@ Cnv_2_3.convert_in(m2);
+
+    return m3;
+  }
+
+  proc convert_out(m3 : msg3_t) : msg1_t = {
+    var m1 : msg1_t;
+    var m2 : msg2_t;
+
+    m2 <@ Cnv_2_3.convert_out(m3);
+    m1 <@ Cnv_1_2.convert_out(m2);
+
+    return m1;
+  }
+}.
+
+local lemma h &m :
+  Pr[D_ST(Converter_1_3.Converted(BotR, Cnv_1_3), BotT).d() @ &m : res] < e + e'.
+proof. admitted.
+end section Theorem.
