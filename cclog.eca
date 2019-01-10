@@ -1,0 +1,188 @@
+(* -------------------------------------------------------------------- *)
+require import AllCore Array.
+
+(* -------------------------------------------------------------------- *)
+type msg.
+type gmem, lmem.
+
+type mem = gmem * lmem.
+
+type converter = { readc : msg -> msg; writec : msg -> msg; }.
+
+(* -------------------------------------------------------------------- *)
+type resource = {
+  ninterfaces : int;
+  msgok       : bool -> int -> msg -> bool;
+  read        : int -> mem -> mem * msg;
+  write       : int -> mem -> msg -> mem;
+}.
+
+op bread  = true.
+op bwrite = false.
+
+(* -------------------------------------------------------------------- *)
+op isindex (r : resource) (i : int) =
+  0 <= i < ninterfaces r.
+
+op isresource (r : resource) =
+     (0 < ninterfaces r)
+  /\ (forall b i m, msgok r b i m => isindex r i)
+  /\ (forall i mem m, !msgok r bwrite i m => write r i mem m = mem)
+  /\ (forall i mem, isindex r i => msgok r bread i (read r i mem).`2).
+
+(* -------------------------------------------------------------------- *)
+type instance_ =
+ { resource : resource;
+   globals  : gmem;
+   locals   : lmem array; }.
+
+op isinstance (inst : instance_) =
+  size inst.`locals = ninterfaces inst.`resource.
+
+op lmem (inst : instance_) (i : int) =
+  inst.`locals.[i].
+
+(* -------------------------------------------------------------------- *)
+op iread (inst : instance_) (i : int) =
+  if isindex inst.`resource i then
+    let lmem = lmem inst i in
+    let (mem, msg) = read inst.`resource i (inst.`globals, lmem) in
+    let inst =
+      {| inst with
+           globals = mem.`1;
+           locals  = inst.`locals.[i <- mem.`2]; |}
+    in (inst, msg)
+
+  else (inst, witness).
+
+(* -------------------------------------------------------------------- *)
+op iwrite (inst : instance_) (i : int) (m : msg) =
+  if isindex inst.`resource i then
+    let lmem = lmem inst i in
+    let mem = write inst.`resource i (inst.`globals, lmem) m in
+    {| inst with
+         globals = mem.`1;
+         locals  = inst.`locals.[i <- mem.`2]; |}
+
+  else inst.
+
+(* -------------------------------------------------------------------- *)
+op cmsgok (c : converter) (ci : int) (r : resource) (b : bool) (i : int) (m : msg) =
+  if isindex r ci && i = ci then
+    if b (* bread *) then
+      exists m', msgok r b i m' /\ m = c.`readc m'
+    else
+      msgok r b i (c.`writec m)
+  else msgok r b i m.
+
+(* -------------------------------------------------------------------- *)
+op cread (c : converter) (ci : int) (r : resource) (i : int) (mem : mem) =
+  if isindex r ci && i = ci then
+    let (mem, m) = read r i mem in
+    (mem, c.`readc m)
+  else read r i mem.
+
+(* -------------------------------------------------------------------- *)
+op cwrite (c : converter) (ci : int) (r : resource) (i : int) (mem : mem) (m : msg) =
+  if isindex r ci && i = ci then
+    write r i mem (c.`writec m)
+  else write r i mem m.
+
+(* -------------------------------------------------------------------- *)
+op rapply (r : resource) (c : converter) (i : int) : resource =
+  {| r with msgok = cmsgok c i r;
+            read  = cread  c i r;
+            write = cwrite c i r; |}.
+
+(* -------------------------------------------------------------------- *)
+lemma isresource_rapply r c i :
+  isresource r => isresource (rapply r c i).
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+lemma cmsgok_out c ci r : !isindex r ci => cmsgok c ci r = msgok r.
+proof.
+move=> h; apply/fun_ext => b; apply/fun_ext => i; apply/fun_ext => m.
+by rewrite /cmsgok /= h.
+qed.
+
+(* -------------------------------------------------------------------- *)
+lemma cmsgok_eq c ci r1 r2 :
+     r1.`ninterfaces = r2.`ninterfaces
+  => r1.`msgok = r2.`msgok
+  => cmsgok c ci r1 = cmsgok c ci r2.
+proof. by move=> eq1 eq2; rewrite /cmsgok /isindex eq1 eq2. qed.
+
+(* -------------------------------------------------------------------- *)
+(* [x.`proj args] does not reduce                                       *)
+lemma rapply_swap r c1 i1 c2 i2 : i1 <> i2 =>
+    rapply (rapply r c1 i1) c2 i2
+  = rapply (rapply r c2 i2) c1 i1.
+proof.
+move=> ne_i1i2; rewrite /rapply /=; congr.
++ case: (isindex r i1) => h1; last first.
+  * by rewrite !(cmsgok_out _ i1) //=; apply: cmsgok_eq.
+  case: (isindex r i2) => h2; last first.
+  * by rewrite !(cmsgok_out _ i2) //=; apply: cmsgok_eq.
+  apply/fun_ext => b; apply/fun_ext => i; apply/fun_ext => m.
+  rewrite /cmsgok !(h1, h2) /=; case: b => _.
+  - case: (i = i1) => [->>|].
+    * rewrite ne_i1i2 /=. admit.
+    case: (i = i2) => [->>|] /=.
+    * move=> _. admit.
+    admit.
+  - admit.
++ admit.
++ admit.
+admitted.
+
+(*-------------------------------------------------------------------- *)
+op converter0 = {| readc = idfun; writec = idfun; |}.
+
+op ( \o ) (c1 c2 : converter) =
+  {| readc  = c2.`readc  \o c1.`readc ;
+     writec = c1.`writec \o c2.`writec; |}.
+
+lemma addc0 c : c \o converter0 = c.
+proof. admitted.
+
+lemma add0c c : converter0 \o c = c.
+proof. admitted.
+
+lemma addA : associative ( \o ).
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+lemma rapply1 r i :
+  rapply r converter0 i = r.
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+lemma rapply_comp r c1 c2 i :
+    rapply r (c1 \o c2) i
+  = rapply (rapply r c2 i) c1 i.
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+op ( || ) : resource -> resource -> resource.
+op ( ^^ ) : converter -> converter -> converter.
+
+(* -------------------------------------------------------------------- *)
+axiom rapply_para r1 r2 c1 c2 i :
+    rapply (r1 || r2) (c1 ^^ c2) i
+  = ((rapply r1 c1 i) || (rapply r2 c2 i)).
+
+(* -------------------------------------------------------------------- *)
+type pseudometric = resource -> resource -> real.
+
+(* -------------------------------------------------------------------- *)
+op ispseudometric (d : pseudometric) =
+     (forall r, d r r = 0%r)
+  /\ (forall r s, d r s = d s r)
+  /\ (forall r s t, d r t <= d r s + d s t).
+
+(* -------------------------------------------------------------------- *)
+op iscompatible (d : pseudometric) =
+     ispseudometric d
+  /\ (forall r r' s s', d (r || r') (s || s') <= d r s + d r' s')
+  /\ (forall r s c i, d (rapply r c i) (rapply s c i) <= d r s).
