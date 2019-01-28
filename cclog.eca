@@ -2,6 +2,9 @@
 require import AllCore Array.
 
 (* -------------------------------------------------------------------- *)
+pragma -oldip.
+
+(* -------------------------------------------------------------------- *)
 type msg.
 type gmem, lmem.
 
@@ -114,7 +117,6 @@ lemma cmsgok_eq c ci r1 r2 :
 proof. by move=> eq1 eq2; rewrite /cmsgok /isindex eq1 eq2. qed.
 
 (* -------------------------------------------------------------------- *)
-(* [x.`proj args] does not reduce                                       *)
 lemma rapply_swap r c1 i1 c2 i2 : i1 <> i2 =>
     rapply (rapply r c1 i1) c2 i2
   = rapply (rapply r c2 i2) c1 i1.
@@ -125,13 +127,9 @@ move=> ne_i1i2; rewrite /rapply /=; congr.
   case: (isindex r i2) => h2; last first.
   * by rewrite !(cmsgok_out _ i2) //=; apply: cmsgok_eq.
   apply/fun_ext => b; apply/fun_ext => i; apply/fun_ext => m.
-  rewrite /cmsgok !(h1, h2) /=; case: b => _.
-  - case: (i = i1) => [->>|].
-    * rewrite ne_i1i2 /=. admit.
-    case: (i = i2) => [->>|] /=.
-    * move=> _. admit.
-    admit.
-  - admit.
+  rewrite /cmsgok !(h1, h2) /=; case: (i = i1) => [->>|].
+  * by rewrite ne_i1i2.
+  * by case: (i = i2).
 + admit.
 + admit.
 admitted.
@@ -144,18 +142,39 @@ op ( \o ) (c1 c2 : converter) =
      writec = c1.`writec \o c2.`writec; |}.
 
 lemma addc0 c : c \o converter0 = c.
-proof. admitted.
+proof. by case: c. qed.
 
 lemma add0c c : converter0 \o c = c.
-proof. admitted.
+proof. by case: c. qed.
 
 lemma addA : associative ( \o ).
-proof. admitted.
+proof. by do 3! (case => ??). qed.
 
 (* -------------------------------------------------------------------- *)
-lemma rapply1 r i :
-  rapply r converter0 i = r.
-proof. admitted.
+lemma cmsgok0 ci r : cmsgok converter0 ci r = r.`msgok.
+proof.
+apply/fun_ext => b; apply/fun_ext => i; apply/fun_ext => m.
+rewrite /cmsgok; case: (_ && _) => //=; case: b => _ //.
+by apply/eq_iff; split => [[m' [? ->]]|?]; last exists m.
+qed.
+
+(* -------------------------------------------------------------------- *)
+lemma cread0 ci r : cread converter0 ci r = r.`read.
+proof.
+apply/fun_ext => i; apply/fun_ext => m.
+by rewrite /cread; case: (_ && _) => //=; case: (r.`read _ _).
+qed.
+
+(* -------------------------------------------------------------------- *)
+lemma cwrite0 ci r : cwrite converter0 ci r = r.`write.
+proof.
+apply/fun_ext => i; apply/fun_ext => m.
+by rewrite /cwrite; case: (_ && _) => //=; case: (r.`write _ _).
+qed.
+
+(* -------------------------------------------------------------------- *)
+lemma rapply1 r i : rapply r converter0 i = r.
+proof. by rewrite /rapply cmsgok0 cread0 cwrite0; case: r. qed.
 
 (* -------------------------------------------------------------------- *)
 lemma rapply_comp r c1 c2 i :
