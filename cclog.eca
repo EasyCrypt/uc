@@ -130,9 +130,31 @@ move=> ne_i1i2; rewrite /rapply /=; congr.
   rewrite /cmsgok !(h1, h2) /=; case: (i = i1) => [->>|].
   * by rewrite ne_i1i2.
   * by case: (i = i2).
-+ admit.
-+ admit.
-admitted.
++ case: (isindex r i1) =>h1; last first. (* start with easy case*)
+  (* index 1 is not valid: replace and trivial.*) 
+  * apply/fun_ext => i; apply/fun_ext => m.
+  by rewrite /cread /= h1.
+  (* valid index 1: same thing if index 2 is invalid.*)
+  case: (isindex r i2) =>h2; last first.
+  * apply/fun_ext => i; apply/fun_ext => m.
+  by rewrite /cread /= h2.
+  (* Deal with two valid indices.*)
+  * apply/fun_ext => i; apply/fun_ext => m.
+  rewrite  /cread (h1,h2) /=; case: (i = i1) => [->>|].
+  by rewrite ne_i1i2.
+  by case: (i = i2).
++ case: (isindex r i1) =>h1; last first.
+  * apply/fun_ext => i; apply/fun_ext => mem; apply/fun_ext => msg.
+  by rewrite /cwrite /= h1.
+  case: (isindex r i2) => h2; last first.
+  * apply/fun_ext => i; apply/fun_ext => mem; apply/fun_ext => msg.
+  by rewrite /cwrite /= h2.
+  * apply/fun_ext => i; apply/fun_ext => mem; apply/fun_ext => msg.
+  rewrite /cwrite (h1,h2) /=.
+    - case: (i = i1) => [->>|].
+    by rewrite ne_i1i2.
+    - by case (i = i2).
+qed.
 
 (*-------------------------------------------------------------------- *)
 op converter0 = {| readc = idfun; writec = idfun; |}.
