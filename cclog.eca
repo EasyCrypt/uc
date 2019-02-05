@@ -201,17 +201,23 @@ proof. by rewrite /rapply cmsgok0 cread0 cwrite0; case: r. qed.
 (* -------------------------------------------------------------------- *)
 lemma rapply_comp r c1 c2 i :
     rapply r (c1 \o c2) i
-  = rapply (rapply r c2 i) c1 i.
+  = rapply (rapply r c1 i) c2 i.
 proof.
 rewrite /rapply; congr => /=.
 + apply/fun_ext => b; apply/fun_ext => j; apply/fun_ext => m.
   case: (isindex r i) => hri; last by rewrite /cmsgok hri.
-  rewrite /cmsgok hri /=; case: (j = i) => [<<-|] //=.
-  case: b.
-admit.
-
-
- admitted.
+  rewrite /cmsgok hri /=; case: (j = i) => [<<-|] //=; case: b => hb //.
+  apply: eq_iff; split.
+  - by case=> [m1] [] hmsg1 ->; exists (c1.`readc m1) m1.
+  - by case=> [m1] [] [m2] [] hmsg2 -> ->; exists m2.
++ apply/fun_ext => j; apply/fun_ext => mem.
+  case: (isindex r i) => hri; last by rewrite /cread hri.
+  rewrite /cread hri /=; case: (j = i) => [<<-|] //.
+  by case: (r.`read j mem) => /=.
++ apply/fun_ext => j; apply/fun_ext => mem; apply/fun_ext => m.
+  case: (isindex r i) => hri /=; last by rewrite /cwrite hri.
+  by rewrite /cwrite hri /=; case: (j = i) => [<<-|].
+qed.
 
 (* -------------------------------------------------------------------- *)
 op ( || ) : resource -> resource -> resource.
