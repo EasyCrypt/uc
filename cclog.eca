@@ -100,7 +100,7 @@ op rapply (r : resource) (c : converter) (i : int) : resource =
 (* -------------------------------------------------------------------- *)
 lemma isresource_rapply r c i :
   isresource r => isresource (rapply r c i).
-proof. admitted.
+proof. smt(). qed.
 
 (* -------------------------------------------------------------------- *)
 lemma cmsgok_out c ci r : !isindex r ci => cmsgok c ci r = msgok r.
@@ -202,7 +202,16 @@ proof. by rewrite /rapply cmsgok0 cread0 cwrite0; case: r. qed.
 lemma rapply_comp r c1 c2 i :
     rapply r (c1 \o c2) i
   = rapply (rapply r c2 i) c1 i.
-proof. admitted.
+proof.
+rewrite /rapply; congr => /=.
++ apply/fun_ext => b; apply/fun_ext => j; apply/fun_ext => m.
+  case: (isindex r i) => hri; last by rewrite /cmsgok hri.
+  rewrite /cmsgok hri /=; case: (j = i) => [<<-|] //=.
+  case: b.
+admit.
+
+
+ admitted.
 
 (* -------------------------------------------------------------------- *)
 op ( || ) : resource -> resource -> resource.
