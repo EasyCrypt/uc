@@ -1,5 +1,5 @@
 (* -------------------------------------------------------------------- *)
-require import AllCore Array.
+require import AllCore Array List.
 
 (* -------------------------------------------------------------------- *)
 pragma -oldip.
@@ -157,23 +157,23 @@ move=> ne_i1i2; rewrite /rapply /=; congr.
 qed.
 
 (*-------------------------------------------------------------------- *)
-op converter0 = {| readc = idfun; writec = idfun; |}.
+op converter1 = {| readc = idfun; writec = idfun; |}.
 
 op ( \o ) (c1 c2 : converter) =
   {| readc  = c2.`readc  \o c1.`readc ;
      writec = c1.`writec \o c2.`writec; |}.
 
-lemma addc0 c : c \o converter0 = c.
+lemma addc0 c : c \o converter1 = c.
 proof. by case: c. qed.
 
-lemma add0c c : converter0 \o c = c.
+lemma add0c c : converter1 \o c = c.
 proof. by case: c. qed.
 
 lemma addA : associative ( \o ).
 proof. by do 3! (case => ??). qed.
 
 (* -------------------------------------------------------------------- *)
-lemma cmsgok0 ci r : cmsgok converter0 ci r = r.`msgok.
+lemma cmsgok0 ci r : cmsgok converter1 ci r = r.`msgok.
 proof.
 apply/fun_ext => b; apply/fun_ext => i; apply/fun_ext => m.
 rewrite /cmsgok; case: (_ && _) => //=; case: b => _ //.
@@ -181,22 +181,26 @@ by apply/eq_iff; split => [[m' [? ->]]|?]; last exists m.
 qed.
 
 (* -------------------------------------------------------------------- *)
-lemma cread0 ci r : cread converter0 ci r = r.`read.
+lemma cread0 ci r : cread converter1 ci r = r.`read.
 proof.
 apply/fun_ext => i; apply/fun_ext => m.
 by rewrite /cread; case: (_ && _) => //=; case: (r.`read _ _).
 qed.
 
 (* -------------------------------------------------------------------- *)
-lemma cwrite0 ci r : cwrite converter0 ci r = r.`write.
+lemma cwrite0 ci r : cwrite converter1 ci r = r.`write.
 proof.
 apply/fun_ext => i; apply/fun_ext => m.
 by rewrite /cwrite; case: (_ && _) => //=; case: (r.`write _ _).
 qed.
 
 (* -------------------------------------------------------------------- *)
-lemma rapply1 r i : rapply r converter0 i = r.
+lemma rapply1 r i : rapply r converter1 i = r.
 proof. by rewrite /rapply cmsgok0 cread0 cwrite0; case: r. qed.
+
+(* -------------------------------------------------------------------- *)
+op rapplys (r : resource) (cs : converter list) =
+  foldl (fun r i => rapply r (nth witness cs i) i) r (iota_ 0 (size cs)).
 
 (* -------------------------------------------------------------------- *)
 lemma rapply_comp r c1 c2 i :
@@ -242,3 +246,42 @@ op iscompatible (d : pseudometric) =
      ispseudometric d
   /\ (forall r r' s s', d (r || r') (s || s') <= d r s + d r' s')
   /\ (forall r s c i, d (rapply r c i) (rapply s c i) <= d r s).
+
+(* -------------------------------------------------------------------- *)
+op A = 0.
+op B = 1.
+op E = 2.
+
+op bottom : bool -> converter.
+
+(* -------------------------------------------------------------------- *)
+op d : pseudometric.
+
+axiom psd : ispseudometric d.
+axiom pcd : iscompatible   d.
+
+(* -------------------------------------------------------------------- *)
+op sc (e : real) (R S : resource) (c1 c2 : converter) =
+     R.`ninterfaces = 3
+  => S.`ninterfaces = 3
+  => forall b,
+          d (rapplys R [c1; c2; bottom b]) (rapply S (bottom b) E) <= e
+       /\ exists sigma, d (rapplys R [c1; c2]) (rapply S sigma E) <= e.
+
+(* -------------------------------------------------------------------- *)
+lemma L1 e e' c1 c2 c1' c2' R S T :
+     sc e  R S c1  c2
+  => sc e' S T c1' c2'
+  => sc (e + e') R T (c1' \o c1) (c2' \o c2).
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+lemma L2 e e' c1 c2 c1' c2' R S R' S' :
+     sc e  R  S  c1  c2
+  => sc e' R' S' c1' c2'
+  => sc (e + e') (R || R') (S || S') (c1' ^^ c1) (c2' ^^ c2).
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+lemma L3 R : sc 0%r R R converter1 converter1.
+proof. admitted.
