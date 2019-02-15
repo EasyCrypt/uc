@@ -273,7 +273,16 @@ lemma L1 e e' c1 c2 c1' c2' R S T :
      sc e  R S c1  c2
   => sc e' S T c1' c2'
   => sc (e + e') R T (c1' \o c1) (c2' \o c2).
-proof. admitted.
+  proof.
+    rewrite /sc //=.
+  move=> sc1 sc2.
+  move=> n1 n2.
+    case. (*b true*)
+  split.
+    (* How to add an intermediate term for triangle inequality? *)
+
+
+    admitted.
 
 (* -------------------------------------------------------------------- *)
 lemma L2 e e' c1 c2 c1' c2' R S R' S' :
@@ -284,4 +293,10 @@ proof. admitted.
 
 (* -------------------------------------------------------------------- *)
 lemma L3 R : sc 0%r R R converter1 converter1.
-proof. admitted.
+    proof.
+    rewrite /sc //=.
+    move=> n1 n2.
+      case.
+      (* How to use rapply1 with rapplys?*)
+    
+      admitted.
