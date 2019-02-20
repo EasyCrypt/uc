@@ -1,5 +1,6 @@
 (* -------------------------------------------------------------------- *)
-require import AllCore Array List.
+require import AllCore Array List Ring StdRing StdOrder.
+(*---*) import IntID RealOrder.
 
 (* -------------------------------------------------------------------- *)
 pragma -oldip.
@@ -123,9 +124,9 @@ lemma rapply_swap r c1 i1 c2 i2 : i1 <> i2 =>
 proof.
 move=> ne_i1i2; rewrite /rapply /=; congr.
 + case: (isindex r i1) => h1; last first.
-  * by rewrite !(cmsgok_out _ i1) //=; apply: cmsgok_eq.
+  * by rewrite !(@cmsgok_out _ i1) //=; apply: cmsgok_eq.
   case: (isindex r i2) => h2; last first.
-  * by rewrite !(cmsgok_out _ i2) //=; apply: cmsgok_eq.
+  * by rewrite !(@cmsgok_out _ i2) //=; apply: cmsgok_eq.
   apply/fun_ext => b; apply/fun_ext => i; apply/fun_ext => m.
   rewrite /cmsgok !(h1, h2) /=; case: (i = i1) => [->>|].
   * by rewrite ne_i1i2.
@@ -199,8 +200,11 @@ lemma rapply1 r i : rapply r converter1 i = r.
 proof. by rewrite /rapply cmsgok0 cread0 cwrite0; case: r. qed.
 
 (* -------------------------------------------------------------------- *)
+op rapplys1 cs r i =
+  rapply r (nth witness cs i) i.
+
 op rapplys (r : resource) (cs : converter list) =
-  foldl (fun r i => rapply r (nth witness cs i) i) r (iota_ 0 (size cs)).
+  foldl (rapplys1 cs) r (iota_ 0 (size cs)).
 
 (* -------------------------------------------------------------------- *)
 lemma rapply_comp r c1 c2 i :
@@ -239,13 +243,42 @@ type pseudometric = resource -> resource -> real.
 op ispseudometric (d : pseudometric) =
      (forall r, d r r = 0%r)
   /\ (forall r s, d r s = d s r)
-  /\ (forall r s t, d r t <= d r s + d s t).
+  /\ (forall s r t, d r t <= d r s + d s t).
 
 (* -------------------------------------------------------------------- *)
 op iscompatible (d : pseudometric) =
      ispseudometric d
   /\ (forall r r' s s', d (r || r') (s || s') <= d r s + d r' s')
   /\ (forall r s c i, d (rapply r c i) (rapply s c i) <= d r s).
+
+(* -------------------------------------------------------------------- *)
+lemma isc_rapplys d r s cs : iscompatible d =>
+  d (rapplys r cs) (rapplys s cs) <= d r s.
+proof.
+case=> [[_ [hd1 hd2]] [_ h]]; rewrite /rapplys.
+elim: {2 4}cs 0 r s => [|c cs' ih] x r s.
++ by rewrite /rapplys /= iota0.
+rewrite /rapplys /= (addrC 1) iotaS ?size_ge0 /=.
+rewrite {2 4}/rapplys1; pose c' := nth _ _ _.
+apply/(ler_trans _ _ _ _ (h _ _ c' x))/ih.
+qed.
+
+(* -------------------------------------------------------------------- *)
+lemma rapplys_s1 r c i :
+  rapplys r (rcons (nseq i converter1) c) = rapply r c i.
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+lemma rapplys_1R r cs :
+  rapplys r (rcons cs converter1) = rapplys r cs.
+proof. admitted.
+
+(* -------------------------------------------------------------------- *)
+lemma rapplys_zip (r : resource) (cs1 cs2 : converter list) :
+  size cs1 = size cs2 =>
+    rapplys (rapplys r cs1) cs2
+  = rapplys r (map (fun c : _ * _ => c.`2 \o c.`1) (zip cs1 cs2)).
+proof. admitted.
 
 (* -------------------------------------------------------------------- *)
 op A = 0.
@@ -263,8 +296,8 @@ axiom pcd : iscompatible   d.
 (* -------------------------------------------------------------------- *)
 op sc (e : real) (R S : resource) (c1 c2 : converter) =
      R.`ninterfaces = 3
-  => S.`ninterfaces = 3
-  => forall b,
+  /\ S.`ninterfaces = 3
+  /\ forall b,
           d (rapplys R [c1; c2; bottom b]) (rapply S (bottom b) E) <= e
        /\ exists sigma, d (rapplys R [c1; c2]) (rapply S sigma E) <= e.
 
@@ -273,39 +306,44 @@ lemma L1 e e' c1 c2 c1' c2' R S T :
      sc e  R S c1  c2
   => sc e' S T c1' c2'
   => sc (e + e') R T (c1' \o c1) (c2' \o c2).
-  proof.
-    rewrite /sc //=.
-  move=> sc1 sc2.
-  move=> n1 n2.
-    case. (*b true*)
-  split.
-    (* How to add an intermediate term for triangle inequality? *)
- 
-
-    admitted.
+proof.
+case=> [R3 [S3 hRS]] [_ [T3 hST]]; do! split => // b; split.
++ have [{hRS} hRS _] := (hRS b); have [{hST} hST _] := (hST b).
+  case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hST.
+  apply/ler_trans; pose z := rapplys S [c1'; c2'; bottom b].
+  apply/(ler_trans _ _ _ (dineq z _ _))/ler_add2r => @/z => {z}.
+  apply: (ler_trans _ _ _ _ (isc_rapplys _ _ _ [c1'; c2'] pcd)).
+  rewrite -2!(rapplys_1R _ [c1'; c2']) /= !rapplys_zip //=.
+  rewrite add0c lerr_eq; congr. rewrite -(rapplys_s1 _ _ E).
+  rewrite /E (nseqS 1) // (nseqS 0) // nseq0 /=.
+  by rewrite rapplys_zip //= !(addc0, add0c).
++ admit.
+qed.
 
 (* -------------------------------------------------------------------- *)
 lemma L2 e e' c1 c2 c1' c2' R S R' S' :
      sc e  R  S  c1  c2
   => sc e' R' S' c1' c2'
   => sc (e + e') (R || R') (S || S') (c1' ^^ c1) (c2' ^^ c2).
-  proof.
+proof.
+(*
     rewrite /sc //=.
     move=> sc1 sc2.    
     move=> n1 n2.  
     case.
     split.
     (* rapplys + triangle inequality. *)
-    admitted.
-
+*)
+admitted.
   
 (* -------------------------------------------------------------------- *)
-lemma L3 R : sc 0%r R R converter1 converter1.
-    proof.
-    rewrite /sc //=.
-    move=> n1 n2.
-      case.
-      (* How to use rapply1 with rapplys?*)
-
-    
-      admitted.
+lemma L3 R :
+  R.`ninterfaces = 3 => sc 0%r R R converter1 converter1.
+proof.
+move=> hR3; do! split => // b; split.
++ pose cs := [_; _; bottom b].
+  have ->: cs = rcons (nseq E converter1) (bottom b).
+  * by rewrite /E (nseqS 1) // (nseqS 0) // nseq0 /=.
+  by rewrite rapplys_s1; case: psd => ->.
++ admit.
+admitted.
