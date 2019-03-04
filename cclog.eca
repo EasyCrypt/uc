@@ -341,15 +341,23 @@ lemma L2 e e' c1 c2 c1' c2' R S R' S' :
      sc e  R  S  c1  c2
   => sc e' R' S' c1' c2'
   => sc (e + e') (R || R') (S || S') (c1' ^^ c1) (c2' ^^ c2).
-proof.
-(*
-    rewrite /sc //=.
-    move=> sc1 sc2.    
-    move=> n1 n2.  
-    case.
-    split.
-    (* rapplys + triangle inequality. *)
-*)
+  proof.
+  case=> [R3 [S3 hRS]] [_ [S'3 hR'S']].
+  * split.
+    admit.
+  * split.
+    admit.
+    (* trivial but deal with parallel composition. Number of interfaces?*)
+  * move => b; split.
+    have [{hRS} hRS _] := (hRS b); have [{hR'S'} hR'S' _] := (hR'S' b).
+    case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hR'S'.
+    apply/ler_trans.
+    (*
+      Replace rapplys ^^ ->  lemmas or rapplys redefinition.
+     || definition
+      d iscompatible
+    *)
+    
 admitted.
   
 (* -------------------------------------------------------------------- *)
