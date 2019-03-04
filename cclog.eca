@@ -273,6 +273,10 @@ lemma rapplys_1R r cs :
   rapplys r (rcons cs converter1) = rapplys r cs.
 proof. admitted.
 
+lemma rapplys_R1 r cs :
+    rapplys r cs = rapplys r (rcons cs converter1).
+proof. admitted.
+
 (* -------------------------------------------------------------------- *)
 lemma rapplys_zip (r : resource) (cs1 cs2 : converter list) :
   size cs1 = size cs2 =>
@@ -357,5 +361,15 @@ move=> hR3; do! split => // b; split.
   have ->: cs = rcons (nseq E converter1) (bottom b).
   * by rewrite /E (nseqS 1) // (nseqS 0) // nseq0 /=.
   by rewrite rapplys_s1; case: psd => ->.
-+ admit.
-admitted.
++ exists converter1.
+  pose cs := [_ ; _].
+  have ->: rapplys R cs = rapplys R (rcons (nseq E converter1) (converter1)).
+  (*A bit clumsy?*)
+  * have ->: cs = rcons (nseq B converter1) (converter1).
+    * by rewrite /B (nseqS 0) // nseq0 /=.
+  rewrite rapplys_s1; rewrite rapplys_s1.
+  rewrite /rapply.
+  rewrite /converter1 //=.
+  smt.
+  by rewrite rapplys_s1; case: psd => ->.
+qed.
