@@ -246,6 +246,10 @@ op ispseudometric (d : pseudometric) =
   /\ (forall s r t, d r t <= d r s + d s t).
 
 (* -------------------------------------------------------------------- *)
+lemma ge0_ispseudometric d r s : ispseudometric d => 0%r <= d r s.
+proof. by case=> [h1 [h2 h3]]; have := h3 r s s; rewrite h1 h2 /#. qed.
+
+(* -------------------------------------------------------------------- *)
 op iscompatible (d : pseudometric) =
      ispseudometric d
   /\ (forall r r' s s', d (r || r') (s || s') <= d r s + d r' s')
@@ -297,6 +301,8 @@ op d : pseudometric.
 axiom psd : ispseudometric d.
 axiom pcd : iscompatible   d.
 
+hint exact : psd pcd.
+
 (* -------------------------------------------------------------------- *)
 op sc (e : real) (R S : resource) (c1 c2 : converter) =
      R.`ninterfaces = 3
@@ -312,52 +318,62 @@ lemma L1 e e' c1 c2 c1' c2' R S T :
   => sc (e + e') R T (c1' \o c1) (c2' \o c2).
 proof.
 case=> [R3 [S3 hRS]] [_ [T3 hST]]; do! split => // b; split.
-  + have [{hRS} hRS _] := (hRS b); have [{hST} hST _] := (hST b).
++ have [{hRS} hRS _] := (hRS b); have [{hST} hST _] := (hST b).
   case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hST.
-  apply/ler_trans. pose z := rapplys S [c1'; c2'; bottom b].
+  apply/ler_trans; pose z := rapplys S [c1'; c2'; bottom b].
   apply/(ler_trans _ _ _ (dineq z _ _))/ler_add2r => @/z => {z}.
   apply: (ler_trans _ _ _ _ (isc_rapplys _ _ _ [c1'; c2'] pcd)).
   rewrite -2!(rapplys_1R _ [c1'; c2']) /= !rapplys_zip //=.
   rewrite add0c lerr_eq; congr. rewrite -(rapplys_s1 _ _ E).
   rewrite /E (nseqS 1) // (nseqS 0) // nseq0 /=.
   by rewrite rapplys_zip //= !(addc0, add0c).
-  + have [{hRS} hRS [s]] := (hRS b); have [{hST} hST [s']] := (hST b).
-  pose sigma := s \o s'.
-  move => hs' hs.
-  exists sigma.
-  case: psd => [_ [dsym dineq]].
-  print ler_add.
-  have := ler_add _ _ _ _ hs hs'.
-  apply/ler_trans.
-  pose z:= rapplys S [c1'; c2'; s].
-  (*
-    Commutativity -> use different lemmas with proper composition.
-    Pseudo-metric compatible.
-    Commutativity.
-  *)
-  admitted.
++ have [{hRS} hRS [s]] := (hRS b); have [{hST} hST [s']] := (hST b).
+  move=> hs' hs; exists (s' \o s); case: psd => [_ [dsym dineq]].
+  pose cs := [c1; c2]; pose cs' := [c1'; c2'].
+  have := rapplys_zip R cs cs' _ => //= @/cs @/cs' /= <- => {cs cs'}.
+  rewrite rapply_comp; case: pcd => _ [_ hc].
+  pose z := rapplys S [c1'; c2'; s].
+  apply/(@ler_trans _ _ _ (dineq z _ _))/ler_add => @/z => {z}.
+  * apply: (ler_trans _ _ _ _ hs).
+    suff ->: rapplys S [c1'; c2'; s] = rapplys (rapply S s E) [c1'; c2'].
+    - rewrite {1 2}/rapplys /= (iotaS _ 1) //= iota1 /=.
+      by rewrite /rapplys1 /=; apply/(ler_trans _ _ _ (hc _ _ _ _))/hc.
+    pose cs  := [converter1; converter1; s].
+    pose cs' := [c1'; c2'; converter1].
+    have := rapplys_zip S cs cs' _ => //= @/cs @/cs' /=.
+    rewrite !(addc0, add0c) => <-; rewrite (rapplys_1R _ [c1'; c2']).
+    congr; rewrite /rapplys /= (iotaS _ 2) //= (iotaS _ 1) //= iota1 /=.
+    by rewrite /rapplys1 /= !rapply1.
+  * pose cs  := [converter1; converter1; s].
+    pose cs' := [c1'; c2'; converter1].
+    have := rapplys_zip S cs' cs _ => //= @/cs @/cs' /=.
+    rewrite !(addc0, add0c) => <-; rewrite (rapplys_1R _ [c1'; c2']).
+    rewrite {1}/rapplys /= (iotaS _ 2) //= (iotaS _ 1) //= iota1 /=.
+    by rewrite /rapplys1 /= !rapply1; apply/(@ler_trans _ _ _ _ hs')/hc.
+qed.
+
 (* -------------------------------------------------------------------- *)
 lemma L2 e e' c1 c2 c1' c2' R S R' S' :
      sc e  R  S  c1  c2
   => sc e' R' S' c1' c2'
   => sc (e + e') (R || R') (S || S') (c1' ^^ c1) (c2' ^^ c2).
-  proof.
-  case=> [R3 [S3 hRS]] [_ [S'3 hR'S']].
-  * split.
-    admit.
-  * split.
-    admit.
-    (* trivial but deal with parallel composition. Number of interfaces?*)
-  * move => b; split.
-    have [{hRS} hRS _] := (hRS b); have [{hR'S'} hR'S' _] := (hR'S' b).
-    case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hR'S'.
-    apply/ler_trans.
-    (*
-      Replace rapplys ^^ ->  lemmas or rapplys redefinition.
-     || definition
-      d iscompatible
-    *)
-    
+proof.
+case=> [R3 [S3 hRS]] [_ [S'3 hR'S']].
+* split.
+  admit.
+* split.
+  admit.
+  (* trivial but deal with parallel composition. Number of interfaces?*)
+* move => b; split.
+  have [{hRS} hRS _] := (hRS b); have [{hR'S'} hR'S' _] := (hR'S' b).
+  case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hR'S'.
+  apply/ler_trans.
+  (*
+    Replace rapplys ^^ ->  lemmas or rapplys redefinition.
+   || definition
+    d iscompatible
+  *)
+  
 admitted.
   
 (* -------------------------------------------------------------------- *)
@@ -365,19 +381,10 @@ lemma L3 R :
   R.`ninterfaces = 3 => sc 0%r R R converter1 converter1.
 proof.
 move=> hR3; do! split => // b; split.
-+ pose cs := [_; _; bottom b].
-  have ->: cs = rcons (nseq E converter1) (bottom b).
-  * by rewrite /E (nseqS 1) // (nseqS 0) // nseq0 /=.
-  by rewrite rapplys_s1; case: psd => ->.
-+ exists converter1.
-  pose cs := [_ ; _].
-  have ->: rapplys R cs = rapplys R (rcons (nseq E converter1) (converter1)).
-  (*A bit clumsy?*)
-  * have ->: cs = rcons (nseq B converter1) (converter1).
-    * by rewrite /B (nseqS 0) // nseq0 /=.
-  rewrite rapplys_s1; rewrite rapplys_s1.
-  rewrite /rapply.
-  rewrite /converter1 //=.
-  smt.
-  by rewrite rapplys_s1; case: psd => ->.
++ rewrite ler_eqVlt ltrNge ge0_ispseudometric 1:psd /=.
+  rewrite /rapplys /= (iotaS _ 2) // (iotaS _ 1) // iota1 /=.
+  by rewrite /rapplys1 /= !rapply1; case: psd => ->.
++ exists converter1; rewrite ler_eqVlt ltrNge ge0_ispseudometric 1:psd /=.
+  rewrite /rapplys /= (iotaS _ 1) // iota1 /rapplys1 /=.
+  by rewrite !rapply1; case: psd => ->.
 qed.
