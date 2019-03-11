@@ -231,6 +231,11 @@ qed.
 op ( || ) : resource -> resource -> resource.
 op ( ^^ ) : converter -> converter -> converter.
 
+axiom comp_para_ninterfaces R R' :
+  R.`ninterfaces = R'.`ninterfaces => (R || R').`ninterfaces = R.`ninterfaces.
+
+
+
 (* -------------------------------------------------------------------- *)
 axiom rapply_para r1 r2 c1 c2 i :
     rapply (r1 || r2) (c1 ^^ c2) i
@@ -358,16 +363,30 @@ lemma L2 e e' c1 c2 c1' c2' R S R' S' :
   => sc e' R' S' c1' c2'
   => sc (e + e') (R || R') (S || S') (c1' ^^ c1) (c2' ^^ c2).
 proof.
-case=> [R3 [S3 hRS]] [_ [S'3 hR'S']].
-* split.
-  admit.
-* split.
-  admit.
-  (* trivial but deal with parallel composition. Number of interfaces?*)
+case=> [R3 [S3 hRS]] [R'3 [S'3 hR'S']].
+  * split.
+  have: (R||R').`ninterfaces = R.`ninterfaces.
+  apply/comp_para_ninterfaces.
+  (* actually trivial but I don't know  the right axiom -> brutal solver.*)
+  smt().
+  move: R3.
+  smt().
+  * split.
+  have: (S||S').`ninterfaces = S.`ninterfaces.
+  apply/comp_para_ninterfaces.
+  smt().
+  move: S3.
+  smt().
 * move => b; split.
   have [{hRS} hRS _] := (hRS b); have [{hR'S'} hR'S' _] := (hR'S' b).
   case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hR'S'.
   apply/ler_trans.
+  (*  have: rapplys (R || R') [c1' ^^ c1; c2' ^^ c2; bottom b] = rapply () *)
+
+
+  apply/rapply_para.
+
+  
   (*
     Replace rapplys ^^ ->  lemmas or rapplys redefinition.
    || definition
