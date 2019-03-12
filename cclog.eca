@@ -324,7 +324,8 @@ lemma L1 e e' c1 c2 c1' c2' R S T :
 proof.
 case=> [R3 [S3 hRS]] [_ [T3 hST]]; do! split => // b; split.
 + have [{hRS} hRS _] := (hRS b); have [{hST} hST _] := (hST b).
-  case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hST.
+  case: psd => [_ [dsym dineq]].
+  have := ler_add _ _ _ _ hRS hST.
   apply/ler_trans; pose z := rapplys S [c1'; c2'; bottom b].
   apply/(ler_trans _ _ _ (dineq z _ _))/ler_add2r => @/z => {z}.
   apply: (ler_trans _ _ _ _ (isc_rapplys _ _ _ [c1'; c2'] pcd)).
@@ -364,14 +365,14 @@ lemma L2 e e' c1 c2 c1' c2' R S R' S' :
   => sc (e + e') (R || R') (S || S') (c1' ^^ c1) (c2' ^^ c2).
 proof.
 case=> [R3 [S3 hRS]] [R'3 [S'3 hR'S']].
-  * split.
+* split.
   have: (R||R').`ninterfaces = R.`ninterfaces.
   apply/comp_para_ninterfaces.
   (* actually trivial but I don't know  the right axiom -> brutal solver.*)
   smt().
   move: R3.
   smt().
-  * split.
+* split.
   have: (S||S').`ninterfaces = S.`ninterfaces.
   apply/comp_para_ninterfaces.
   smt().
@@ -381,19 +382,33 @@ case=> [R3 [S3 hRS]] [R'3 [S'3 hR'S']].
   have [{hRS} hRS _] := (hRS b); have [{hR'S'} hR'S' _] := (hR'S' b).
   case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hR'S'.
   apply/ler_trans.
-  (*  have: rapplys (R || R') [c1' ^^ c1; c2' ^^ c2; bottom b] = rapply () *)
-
-
-  apply/rapply_para.
-
-  
-  (*
-    Replace rapplys ^^ ->  lemmas or rapplys redefinition.
-   || definition
-    d iscompatible
-  *)
-  
-admitted.
+  + have: rapplys (R || R') [c1' ^^ c1; c2' ^^ c2; bottom b] = (rapplys R [c1; c2; bottom b] || rapplys  R' [c1'; c2'; bottom b]).
+  (* rewrite rapplys with rapply_para *)
+  admit.
+  (* technique maladroite ci-dessous. x4 *)
+  move=> R_para.
+  rewrite /R_para /= !R_para.
+  + have: rapply (S || S') (bottom b) E = (rapply S (bottom b) E || rapply S' (bottom b) E).
+  admit.
+  move=> S_para.
+  rewrite/S_para /= !S_para.
+  + case: pcd => [_ [compatible_distance] _].
+  apply/compatible_distance.
+* have [{hRS} hRS [sigmaRS] hsigmaRS ] := (hRS b); have [{hR'S'} hR'S' [sigmaR'S'] hsigmaR'S'] := (hR'S' b).
+  exists (sigmaRS ^^ sigmaR'S').
+  + have: rapplys (R || R') [c1' ^^ c1; c2' ^^ c2] = (rapplys R [c1; c2] || rapplys  R' [c1'; c2']).
+  admit.
+  move => R_para.
+  rewrite/R_para /= !R_para.
+  + have: rapply (S || S') (sigmaRS ^^ sigmaR'S') E = (rapply S (sigmaRS) E || rapply S' (sigmaR'S') E).
+  by apply/rapply_para.
+  move=> sigma_para.
+  rewrite /sigma_para /= !sigma_para.
+  + have:= ler_add _ _ _ _ hsigmaRS hsigmaR'S'.
+  apply/ler_trans.
+  case: pcd => [_ [compatible_distance] _].
+  by apply/compatible_distance.
+qed.
   
 (* -------------------------------------------------------------------- *)
 lemma L3 R :
