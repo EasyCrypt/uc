@@ -207,6 +207,20 @@ op rapplys (r : resource) (cs : converter list) =
   foldl (rapplys1 cs) r (iota_ 0 (size cs)).
 
 (* -------------------------------------------------------------------- *)
+lemma rapplys2 R c0 c1 :
+  rapplys R [c0; c1] = rapply (rapply R c0 0) c1 1.
+proof.
+by rewrite /rapplys /rapplys1 /= (iotaS _ 1) // iota1.
+qed.
+
+(* -------------------------------------------------------------------- *)
+lemma rapplys3 R c0 c1 c2 :
+  rapplys R [c0; c1; c2] = rapply (rapply (rapply R c0 0) c1 1) c2 2.
+proof.
+by rewrite /rapplys /rapplys1 /= (iotaS _ 2) // (iotaS _ 1) // iota1.
+qed.
+
+(* -------------------------------------------------------------------- *)
 lemma rapply_comp r c1 c2 i :
     rapply r (c1 \o c2) i
   = rapply (rapply r c1 i) c2 i.
@@ -233,8 +247,6 @@ op ( ^^ ) : converter -> converter -> converter.
 
 axiom comp_para_ninterfaces R R' :
   R.`ninterfaces = R'.`ninterfaces => (R || R').`ninterfaces = R.`ninterfaces.
-
-
 
 (* -------------------------------------------------------------------- *)
 axiom rapply_para r1 r2 c1 c2 i :
@@ -300,6 +312,9 @@ op E = 2.
 
 op bottom : bool -> converter.
 
+axiom bottom_para R S b i :
+  rapply (R || S) (bottom b) i = rapply (R || S) (bottom b ^^ bottom b) i.
+
 (* -------------------------------------------------------------------- *)
 op d : pseudometric.
 
@@ -362,14 +377,14 @@ qed.
 lemma L2 e e' c1 c2 c1' c2' R S R' S' :
      sc e  R  S  c1  c2
   => sc e' R' S' c1' c2'
-  => sc (e + e') (R || R') (S || S') (c1' ^^ c1) (c2' ^^ c2).
+  => sc (e + e') (R || R') (S || S') (c1 ^^ c1') (c2 ^^ c2').
 proof.
 case=> [R3 [S3 hRS]] [R'3 [S'3 hR'S']].
 * split.
   have: (R||R').`ninterfaces = R.`ninterfaces.
   apply/comp_para_ninterfaces.
   (* actually trivial but I don't know  the right axiom -> brutal solver.*)
-  smt().
+  by rewrite R3 R'3.
   move: R3.
   smt().
 * split.
@@ -382,23 +397,13 @@ case=> [R3 [S3 hRS]] [R'3 [S'3 hR'S']].
   have [{hRS} hRS _] := (hRS b); have [{hR'S'} hR'S' _] := (hR'S' b).
   case: psd => [_ [dsym dineq]]; have := ler_add _ _ _ _ hRS hR'S'.
   apply/ler_trans.
-  + have: rapplys (R || R') [c1' ^^ c1; c2' ^^ c2; bottom b] = (rapplys R [c1; c2; bottom b] || rapplys  R' [c1'; c2'; bottom b]).
-  (* rewrite rapplys with rapply_para *)
-  admit.
-  (* technique maladroite ci-dessous. x4 *)
-  move=> R_para.
-  rewrite /R_para /= !R_para.
-  + have: rapply (S || S') (bottom b) E = (rapply S (bottom b) E || rapply S' (bottom b) E).
-  admit.
-  move=> S_para.
-  rewrite/S_para /= !S_para.
-  + case: pcd => [_ [compatible_distance] _].
-  apply/compatible_distance.
+  rewrite rapplys3 !(rapply_para, bottom_para) -/A -/B -/E.
+  case: pcd => _ [h _]; apply/(@ler_trans _ _ _ (h _ _ _ _)).
+  by rewrite &(ler_add) -rapplys3.
 * have [{hRS} hRS [sigmaRS] hsigmaRS ] := (hRS b); have [{hR'S'} hR'S' [sigmaR'S'] hsigmaR'S'] := (hR'S' b).
   exists (sigmaRS ^^ sigmaR'S').
-  + have: rapplys (R || R') [c1' ^^ c1; c2' ^^ c2] = (rapplys R [c1; c2] || rapplys  R' [c1'; c2']).
-  admit.
-  move => R_para.
+  + have R_para: rapplys (R || R') [c1 ^^ c1'; c2 ^^ c2'] = (rapplys R [c1; c2] || rapplys  R' [c1'; c2']).
+    by rewrite !rapplys2 -/A -/B !rapply_para.
   rewrite/R_para /= !R_para.
   + have: rapply (S || S') (sigmaRS ^^ sigmaR'S') E = (rapply S (sigmaRS) E || rapply S' (sigmaR'S') E).
   by apply/rapply_para.
